@@ -1,0 +1,231 @@
+---
+title: "Dashboard Makroekonomiczny: Polska na tle Regionu i USA"
+author: "[Imię Nazwisko]"
+format:
+  dashboard:
+    theme: cosmo
+    orientation: rows
+    nav-buttons:
+      - icon: github
+        href: https://github.com
+---
+
+```{r}
+#| echo: false
+#| message: false
+library(tidyverse)
+library(plotly)
+
+# Wczytanie danych makroekonomicznych
+df <- read_csv("data/macro_data.csv")
+
+# Ostatni dostępny pełny rok dla Polski
+df_pol <- df |>
+  filter(Kraj == "POL") |>
+  arrange(Rok)
+last_pol <- slice_tail(df_pol, n = 1)
+last_year <- last_pol$Rok
+
+# Barwy krajów używane na wykresach porównawczych
+kolory_krajow <- c(
+  "Polska" = "#004b87",
+  "Niemcy" = "#1e293b",
+  "Czechy" = "#f2a900",
+  "Stany Zjednoczone" = "#dc2626"
+)
+
+# Wspólne marginesy wykresów
+marginesy <- list(l = 20, r = 20, t = 30, b = 20)
+```
+
+# {.sidebar}
+
+### 🏛️ Akademia Leona Koźmińskiego
+
+Niniejszy dashboard został stworzony w ekosystemie **Quarto Dashboard** z wykorzystaniem języka **R** i pakietu **plotly**.
+
+---
+
+### 📌 Porównywane Wskaźniki
+* **PKB (%):** Roczny realny wzrost gospodarczy.
+* **Inflacja CPI (%):** Indeks cen towarów i usług konsumpcyjnych.
+* **Bezrobocie (%):** Odsetek siły roboczej bez zatrudnienia.
+* **PKB per capita:** PKB na mieszkańca w bieżących USD.
+
+---
+
+### 🌐 Źródło danych
+Dane pochodzą z otwartego API **Banku Światowego (The World Bank Group)**.
+
+> **Wskazówka:** Wykresy są w pełni interaktywne – najechanie kursorem ujawnia dokładne wartości, a zaznaczenie obszaru powiększa wybrany fragment.
+
+# 🇵🇱 Polska (Trendy Krajowe)
+
+## Row {height=25%}
+
+```{r}
+#| content: valuebox
+#| title: "Wzrost PKB (2025)"
+list(
+  icon = "graph-up-arrow",
+  color = "primary",
+  value = sprintf("%.2f%%", last_pol$Wzrost_PKB_proc)
+)
+```
+
+```{r}
+#| content: valuebox
+#| title: "Inflacja CPI (2025)"
+list(
+  icon = "cash-coin",
+  color = "danger",
+  value = sprintf("%.2f%%", last_pol$Inflacja_CPI_proc)
+)
+```
+
+```{r}
+#| content: valuebox
+#| title: "Stopa Bezrobocia (2025)"
+list(
+  icon = "people",
+  color = "info",
+  value = sprintf("%.2f%%", last_pol$Bezrobocie_proc)
+)
+```
+
+```{r}
+#| content: valuebox
+#| title: "PKB per capita (2025)"
+list(
+  icon = "currency-dollar",
+  color = "success",
+  value = paste0("$", format(round(last_pol$PKB_per_capita_USD), big.mark = ","))
+)
+```
+
+## Row {height=45%}
+
+```{r}
+#| title: "Wzrost PKB vs Inflacja CPI w Polsce (2012-2025)"
+plot_ly(df_pol, x = ~Rok) |>
+  add_trace(
+    y = ~Wzrost_PKB_proc, name = "Wzrost PKB (%)",
+    type = "scatter", mode = "lines+markers",
+    line = list(color = "#004b87", width = 3),
+    marker = list(color = "#004b87")
+  ) |>
+  add_trace(
+    y = ~Inflacja_CPI_proc, name = "Inflacja CPI (%)",
+    type = "scatter", mode = "lines+markers",
+    line = list(color = "#dc2626", width = 2.5, dash = "dash"),
+    marker = list(color = "#dc2626")
+  ) |>
+  layout(
+    xaxis = list(title = "Rok"),
+    yaxis = list(title = "Wartość wskaźnika (%)"),
+    hovermode = "x unified",
+    margin = marginesy,
+    legend = list(orientation = "h", yanchor = "bottom", y = 1.02, xanchor = "right", x = 1)
+  )
+```
+
+```{r}
+#| title: "Ewolucja PKB per capita w Polsce (USD)"
+plot_ly(
+  df_pol, x = ~Rok, y = ~PKB_per_capita_USD,
+  type = "scatter", mode = "lines+markers", fill = "tozeroy",
+  line = list(color = "#f2a900"),
+  marker = list(color = "#f2a900"),
+  fillcolor = "rgba(242, 169, 0, 0.5)"
+) |>
+  layout(
+    xaxis = list(title = "Rok"),
+    yaxis = list(title = "USD"),
+    hovermode = "x unified",
+    margin = marginesy
+  )
+```
+
+## Row {height=30%}
+
+```{r}
+#| title: "Tabela Danych Historycznych dla Polski"
+df_pol |>
+  arrange(desc(Rok)) |>
+  select(
+    Rok,
+    `PKB (%)` = Wzrost_PKB_proc,
+    `Inflacja (%)` = Inflacja_CPI_proc,
+    `Bezrobocie (%)` = Bezrobocie_proc,
+    `PKB per capita (USD)` = PKB_per_capita_USD
+  ) |>
+  knitr::kable()
+```
+
+# 🌍 Porównanie Regionalne (PL, DE, CZ, USA)
+
+## Row {height=50%}
+
+```{r}
+#| title: "Dynamika PKB: Polska na tle Regionu i USA (2018-2025)"
+df |>
+  filter(Rok >= 2018) |>
+  plot_ly(
+    x = ~Rok, y = ~Wzrost_PKB_proc,
+    color = ~Nazwa_Kraju, colors = kolory_krajow,
+    type = "scatter", mode = "lines+markers"
+  ) |>
+  layout(
+    xaxis = list(title = "Rok"),
+    yaxis = list(title = "Wzrost PKB (%)"),
+    hovermode = "x unified",
+    margin = marginesy
+  )
+```
+
+```{r}
+#| title: "Poziom Inflacji CPI w 2023 vs 2025"
+df |>
+  filter(Rok %in% c(2023, 2025)) |>
+  plot_ly(
+    x = ~Nazwa_Kraju, y = ~Inflacja_CPI_proc,
+    color = ~factor(Rok), colors = c("#fca5a5", "#dc2626"),
+    type = "bar"
+  ) |>
+  layout(
+    barmode = "group",
+    xaxis = list(title = "Kraj"),
+    yaxis = list(title = "Inflacja CPI (%)"),
+    legend = list(title = list(text = "Rok")),
+    margin = marginesy
+  )
+```
+
+## Row {height=50%}
+
+```{r}
+#| title: "Krzywa Phillipsa w Regionie: Relacja Inflacji do Bezrobocia (2025)"
+df |>
+  filter(Rok == 2025) |>
+  plot_ly(
+    x = ~Bezrobocie_proc, y = ~Inflacja_CPI_proc,
+    color = ~Nazwa_Kraju, colors = kolory_krajow,
+    text = ~Nazwa_Kraju, textposition = "top center",
+    type = "scatter", mode = "markers+text",
+    cliponaxis = FALSE,
+    # Wielkość bąbla proporcjonalna do PKB per capita
+    marker = list(size = ~PKB_per_capita_USD / 1500, opacity = 0.8)
+  ) |>
+  layout(
+    xaxis = list(title = "Stopa bezrobocia (%)"),
+    yaxis = list(title = "Inflacja CPI (%)"),
+    margin = marginesy
+  )
+```
+
+::: {.card title="Wnioski Analityczne Katedry Finansów ALK"}
+### 🔍 Główne Wnioski z Danych Makroekonomicznych:
+1. **Odporność polskiej gospodarki:** Polska wykazuje wyższe tempo wzrostu PKB niż Niemcy w latach 2024–2025, co potwierdza postępującą konwergencję gospodarczą.
+2. **Dezinflacja w regionie:** Szczyt inflacji z lat 2022–2023 został skutecznie stłumiony we wszystkich analizowanych gospodarkach.
+3. **Niska stopa bezrobocia:** Rynek pracy w Polsce i Czechach pozostaje jednym z najbardziej stabilnych w Unii Europejskiej (bezrobocie poniżej 3%).
+:::
